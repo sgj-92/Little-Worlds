@@ -3,12 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { routes } from '@/app/routes';
-import { createMockServices, type MockServiceOptions, type MockServices } from '@/services/createMockServices';
+import type { AppServices } from '@/services/appServices';
+import { createMockServices, type MockServiceOptions } from '@/services/createMockServices';
 import { ServicesProvider } from '@/services/ServicesContext';
 import { memoryStorage } from '@/services/store';
 import { ToastProvider } from '@/ui/Toast';
 
-export function renderApp(path = '/', options: MockServiceOptions = {}, setup?: (services: MockServices) => void) {
+export function renderApp(path = '/', options: MockServiceOptions = {}, setup?: (services: AppServices) => void) {
   const services = createMockServices({
     storage: memoryStorage(),
     sessionStorage: memoryStorage(),

@@ -28,3 +28,10 @@ export function StoryCover({ story, className, showStatus = true }: { story: Sto
     </div>
   );
 }
+
+/** Placeholder while storybooks load. */
+export function StoryCoverSkeleton({ className }: { className?: string }) {
+  return (
+    <div aria-hidden className={cn('aspect-square animate-shimmer rounded-3xl bg-[linear-gradient(90deg,var(--color-cream-200),var(--color-cream-50),var(--color-cream-200))] bg-[length:200%_100%]', className)} />
+  );
+}

@@ -1,11 +1,12 @@
-import { BookHeart, Check, Headphones, Library, Sparkles, Star } from 'lucide-react';
+import { BookHeart, Check, CloudOff, Headphones, Library, Sparkles, Star } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { listeningState, type ListeningState } from '@/domain/story';
-import { useStories } from '@/state/hooks';
-import { ButtonLink } from '@/ui/Button';
+import { useServices } from '@/services/ServicesContext';
+import { useStories, useStoriesStatus } from '@/state/hooks';
+import { Button, ButtonLink } from '@/ui/Button';
 import { StateMessage } from '@/ui/StateMessage';
-import { StoryCover } from '@/ui/StoryCover';
+import { StoryCover, StoryCoverSkeleton } from '@/ui/StoryCover';
 import { cn } from '@/ui/cn';
 
 type Filter = 'all' | ListeningState;
@@ -25,6 +26,8 @@ const EMPTY_COPY: Record<Exclude<Filter, 'all'>, string> = {
 
 export function LibraryScreen() {
   const stories = useStories();
+  const status = useStoriesStatus();
+  const { stories: repo } = useServices();
   const [filter, setFilter] = useState<Filter>('all');
   const shown = filter === 'all' ? stories : stories.filter((s) => listeningState(s) === filter);
 
@@ -35,7 +38,27 @@ export function LibraryScreen() {
         {stories.length > 0 && <p className="pb-1 font-bold text-navy-500">{stories.length} stories</p>}
       </header>
 
-      {stories.length === 0 ? (
+      {status === 'loading' && stories.length === 0 ? (
+        <ul aria-label="Loading storybooks" className="mt-4 grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <li key={i}>
+              <StoryCoverSkeleton />
+            </li>
+          ))}
+        </ul>
+      ) : status === 'error' ? (
+        <StateMessage
+          tone="error"
+          art={<CloudOff aria-hidden className="size-12" />}
+          title="We couldn’t fetch your storybooks"
+          body="Please check your connection and try again."
+          actions={
+            <Button size="lg" onClick={repo.reload}>
+              Try again
+            </Button>
+          }
+        />
+      ) : stories.length === 0 ? (
         <StateMessage
           art={<BookHeart aria-hidden className="size-12" />}
           title="Your bookshelf is empty"

@@ -1,13 +1,13 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { MockServices } from './createMockServices';
+import type { AppServices } from './appServices';
 
-const ServicesContext = createContext<MockServices | null>(null);
+const ServicesContext = createContext<AppServices | null>(null);
 
-export function ServicesProvider({ services, children }: { services: MockServices; children: ReactNode }) {
+export function ServicesProvider({ services, children }: { services: AppServices; children: ReactNode }) {
   return <ServicesContext.Provider value={services}>{children}</ServicesContext.Provider>;
 }
 
-export function useServices(): MockServices {
+export function useServices(): AppServices {
   const services = useContext(ServicesContext);
   if (!services) throw new Error('useServices must be used inside <ServicesProvider>');
   return services;

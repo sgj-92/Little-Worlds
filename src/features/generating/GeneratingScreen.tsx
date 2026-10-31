@@ -12,7 +12,7 @@ import { PrototypeNote } from '@/ui/PrototypeNote';
 import { StateMessage } from '@/ui/StateMessage';
 import { StoryCover } from '@/ui/StoryCover';
 import { cn } from '@/ui/cn';
-import { MagicBook } from './MagicBook';
+import { MagicBook } from '@/ui/art/MagicBook';
 
 const STAGE_ICONS: Record<GenerationStage, typeof PencilLine> = { writing: PencilLine, illustrating: Palette, narrating: Mic };
 

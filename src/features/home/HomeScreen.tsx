@@ -3,11 +3,11 @@ import { Link } from 'react-router';
 import { greeting } from '@/domain/greeting';
 import { listeningFraction, listeningState } from '@/domain/story';
 import { useServices } from '@/services/ServicesContext';
-import { useSettings, useStories } from '@/state/hooks';
+import { useSettings, useStories, useStoriesStatus } from '@/state/hooks';
 import { Avatar } from '@/ui/Avatar';
 import { IconLink } from '@/ui/IconButton';
 import { ProgressBar } from '@/ui/Progress';
-import { StoryCover } from '@/ui/StoryCover';
+import { StoryCover, StoryCoverSkeleton } from '@/ui/StoryCover';
 import { StoryArt } from '@/ui/art/StoryArt';
 import { ActiveJobBanner } from './ActiveJobBanner';
 
@@ -15,6 +15,7 @@ export function HomeScreen() {
   const { now } = useServices();
   const [settings] = useSettings();
   const stories = useStories();
+  const status = useStoriesStatus();
   const keepListening = stories
     .filter((s) => listeningState(s) === 'listening')
     .sort((a, b) => (b.listening.lastPlayedAt ?? '').localeCompare(a.listening.lastPlayedAt ?? ''))[0];
@@ -70,7 +71,15 @@ export function HomeScreen() {
               </Link>
             )}
           </div>
-          {recent.length === 0 && !keepListening ? (
+          {status === 'loading' && stories.length === 0 ? (
+            <ul aria-label="Loading storybooks" className="-mx-5 flex gap-4 overflow-hidden px-5 md:mx-0 md:grid md:grid-cols-3 md:px-0">
+              {Array.from({ length: 3 }, (_, i) => (
+                <li key={i} className="w-36 shrink-0 md:w-auto">
+                  <StoryCoverSkeleton />
+                </li>
+              ))}
+            </ul>
+          ) : recent.length === 0 && !keepListening ? (
             <p className="rounded-3xl border-2 border-dashed border-navy-900/10 p-6 text-center text-navy-500">Your storybooks will live here.</p>
           ) : (
             <ul className="-mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-2 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">

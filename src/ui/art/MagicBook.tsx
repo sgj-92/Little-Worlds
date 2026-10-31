@@ -1,4 +1,4 @@
-import { cn } from '@/ui/cn';
+import { cn } from '../cn';
 
 /** Animated open storybook with drifting sparkles, shown while a story is being made. */
 export function MagicBook({ className, still }: { className?: string; still?: boolean }) {

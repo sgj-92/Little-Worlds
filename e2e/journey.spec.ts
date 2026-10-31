@@ -49,10 +49,25 @@ test('a story in progress survives a reload and can be retried after failure', a
 });
 
 test('no horizontal overflow on key screens', async ({ page }) => {
-  for (const path of ['/', '/create', '/library', '/story/sample_fox', '/parent']) {
+  for (const path of ['/', '/create', '/library', '/story/sample_fox', '/parent', '/sign-in', '/sign-up']) {
     await page.goto(path);
     await page.waitForTimeout(300);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
+});
+
+test('a parent can sign out and sign back in', async ({ page }) => {
+  await page.goto('/parent');
+  const q = await page.locator('#gate-question').innerText();
+  const [a, b] = (q.match(/\d+/g) ?? []).map(Number);
+  for (const d of String(a! * b!)) await page.getByRole('button', { name: d, exact: true }).click();
+  await page.getByRole('button', { name: 'Check answer' }).click();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  await page.getByLabel('Email').fill('parent@example.com');
+  await page.getByLabel('Password', { exact: true }).fill('storytime');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('heading', { name: /good (morning|afternoon|evening)|sleepy time/i })).toBeVisible();
 });

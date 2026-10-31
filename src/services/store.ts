@@ -72,7 +72,11 @@ export function createPersistentStore<T>(
   return store;
 }
 
-export function createId(prefix: string): string {
-  const rand = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  return `${prefix}_${rand}`;
+/** RFC 4122 v4 UUID — ids are created client-side so optimistic writes match database keys. */
+export function createId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }

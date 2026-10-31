@@ -15,7 +15,8 @@ Update it after every meaningful change.
 | Typecheck / lint | `npm run typecheck` · `npm run lint` |
 | Unit + component tests | `npm test` |
 | End-to-end (phone + tablet) | `npm run test:e2e` |
-| Everything before a push | `npm run check && npm run test:e2e` |
+| Migrations + RLS on local Postgres | `npm run test:db` |
+| Everything before a push | `npm run check && npm run test:db && npm run test:e2e` |
 
 ## Architecture rules
 
@@ -27,6 +28,10 @@ Update it after every meaningful change.
 - `src/features/<screen>/` — screen components and screen-specific pieces.
 - Provider secrets live **only** server-side (Vercel functions / Supabase edge functions).
   Never add a `VITE_` variable holding a secret.
+- The app runs in **demo mode** (mock adapters) unless `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_PUBLISHABLE_KEY` are set (**live mode**, `src/services/createLiveServices.ts`).
+  Tests always use demo mode. Every schema change needs an idempotent migration and RLS tests in
+  `supabase/tests/rls_test.sql`.
 - Generation is asynchronous and persistent: jobs move through `writing → illustrating → narrating`,
   retries resume from the failed stage, and completed assets are stored, never regenerated.
 

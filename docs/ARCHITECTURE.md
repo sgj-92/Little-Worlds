@@ -15,6 +15,31 @@
 
 TypeScript 6 is used rather than 7 because `typescript-eslint` does not yet support TS 7.
 
+## Modes
+
+`createAppServices()` (composition root) chooses at start-up:
+
+- **Demo** — `createMockServices()`: simulated account, localStorage persistence, sample library.
+  Used by tests, previews without credentials, and local development.
+- **Live** — `createLiveServices()` (lazy-loaded chunk with the Supabase SDK): Supabase Auth,
+  Supabase story and settings repositories. Generation, speech and narration remain the
+  labelled mocks until Milestones 3–4.
+
+Configuration is public only: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`,
+`VITE_AUTH_PROVIDERS`. `readLiveConfig` refuses a secret key.
+
+## Accounts
+
+- Parents sign in with email + password (Supabase Auth, PKCE flow), or Google / Apple when switched
+  on. Children never have accounts.
+- Sign-up creates a `families` row via the `on_auth_user_created` trigger; first run asks for the
+  child's first name, age band and picture (`/setup`).
+- Route guards (`src/app/guards.tsx`): `GuestOnly` (sign-in, sign-up, forgot password),
+  `RequireOnboarding` (`/setup`), `RequireAccount` (the child's app). `/reset-password` handles the
+  email link.
+- Repositories subscribe to the auth store; signing out clears cached data and any local in-flight
+  jobs, so nothing crosses between accounts on a shared device.
+
 ## Source layout
 
 ```
@@ -22,7 +47,8 @@ src/
   app/        App, routes, shell, bottom navigation
   domain/     Pure types and rules: generation state machine, safety checks, limits, durations
   services/   Provider interfaces (types.ts), store primitives, composition root
-    mock/     Milestone 1 adapters: repositories, story generator, speech capture, templates
+    mock/     Demo adapters: auth, repositories, story generator, speech capture, templates
+    supabase/ Live adapters: auth, story + settings repositories, row mappers
   state/      React hooks over services (useStories, useSettings, useJobs, useUsage)
   ui/         Design system components and vector story art
   features/   home, create, generating, player, library, parent
@@ -47,7 +73,8 @@ Live adapters planned:
 
 | Interface | Live adapter |
 | --- | --- |
-| StoryRepository / SettingsRepository | Supabase tables via supabase-js (RLS-scoped) |
+| AuthService | ✅ Supabase Auth (email/password, Google, Apple) |
+| StoryRepository / SettingsRepository | ✅ Supabase tables via supabase-js (RLS-scoped, optimistic cache) |
 | StoryGenerator | `POST /api/stories` creates job; Supabase Realtime on `generation_jobs` for progress |
 | SpeechCapture | MediaRecorder → `POST /api/transcribe` (server STT); audio never stored |
 | Narration / illustration | Server-side TTS + image adapters behind a `ProviderRegistry` (configurable per env) |
@@ -56,8 +83,16 @@ Live adapters planned:
 
 See `supabase/migrations/0001_initial_schema.sql`: `families`, `child_profiles`, `stories`,
 `story_scenes`, `listening_progress`, `generation_jobs`, `usage_events`, private bucket
-`story-assets/{family_id}/{story_id}/…`. RLS restricts every row to `auth.uid()`; story, job and
-usage writes happen only through server functions using the service role.
+`story-assets/{family_id}/{story_id}/…`.
+
+- RLS restricts every row to `auth.uid()`; tables are not auto-exposed, access is granted explicitly
+  to `authenticated` only (never `anon`).
+- Families only see stories with `moderation_status = 'approved'`.
+- **Temporary (until Milestone 3):** families may insert/update their own `prototype-template`
+  stories and scenes, because the prototype builds them in the browser. Stories with
+  `source = 'ai'`, jobs and usage can only be written by server functions.
+- `npm run test:db` applies the migration twice to a throwaway Postgres (with stubs for Supabase's
+  `auth` and `storage` schemas) and runs `supabase/tests/rls_test.sql`.
 
 The client domain types in `src/domain/types.ts` mirror these tables.
 
@@ -107,4 +142,7 @@ persists jobs to localStorage, resumes them after reload, and can simulate a fai
 | Domain | Vitest | State machine, safety, limits, durations, parent gate, templates |
 | Services | Vitest + fake timers | Mock generator completion, failure + retry, resume after reload |
 | Screens | RTL + memory router | Create flow, validation, limit state, recovery, library filters, player, settings |
-| Journeys | Playwright (Pixel 7, 1024×768 touch) | End-to-end child journey, reload + retry, no horizontal overflow |
+| Live adapters | Vitest + fake supabase client | Loading, sign-out clearing, optimistic rollback, onboarding, debounced saves |
+| Accounts UI | RTL | Redirects, validation, sign-up confirmation, onboarding, providers, reset, sign-out, export |
+| Database | Postgres 16 + `rls_test.sql` | Re-runnable migration, two-family isolation, anon denied, moderation filter, cascade delete |
+| Journeys | Playwright (Pixel 7, 1024×768 touch) | Child journey, reload + retry, sign out/in, no horizontal overflow |

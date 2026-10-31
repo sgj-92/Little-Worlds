@@ -1,11 +1,13 @@
 import { Baby, BookOpen, Download, FlaskConical, Gauge, Lock, LogOut, Plus, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router';
+import { buildExport, exportFileName } from '@/domain/exportData';
 import { allowedDurations, clampDuration, DURATION_OPTIONS } from '@/domain/durations';
 import { AVOID_TOPIC_LABELS } from '@/domain/safety';
-import type { AgeBand, AvatarId, AvoidTopic, DurationMinutes, ParentSettings, SimulatedFailure, StoryTone } from '@/domain/types';
+import type { AgeBand, AvoidTopic, DurationMinutes, ParentSettings, SimulatedFailure, StoryTone } from '@/domain/types';
 import { useServices } from '@/services/ServicesContext';
-import { useSettings, useStories, useUsage } from '@/state/hooks';
-import { AVATARS } from '@/ui/Avatar';
+import { useSettings, useStore, useStories, useUsage } from '@/state/hooks';
+import { AvatarPicker } from '@/ui/AvatarPicker';
 import { Button } from '@/ui/Button';
 import { ChoiceTiles } from '@/ui/ChoiceTiles';
 import { ProgressBar } from '@/ui/Progress';
@@ -54,6 +56,33 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
   const toast = useToast();
   const dialog = useRef<HTMLDialogElement>(null);
   const [newWord, setNewWord] = useState('');
+  const saveStatus = useStore(services.settings.saveStatus);
+  const authState = useStore(services.auth.state);
+  const email = authState.status === 'signed-in' ? authState.email : null;
+  const navigate = useNavigate();
+
+  function exportData() {
+    const now = services.now();
+    const data = buildExport({ email, settings, stories, now });
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportFileName(now);
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function signOut() {
+    services.parentGate.lock();
+    await services.auth.signOut();
+    navigate('/sign-in', { replace: true });
+  }
+
+  async function deleteAll() {
+    const result = await services.stories.clear();
+    dialog.current?.close();
+    toast.show(result.ok ? 'All storybooks deleted' : 'Couldn’t delete just now — please try again');
+  }
 
   const set = (patch: (s: ParentSettings) => ParentSettings) => update(patch);
   const { child, content, limits, defaults } = settings;
@@ -93,7 +122,9 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
         }
       />
       <div className="px-5 md:px-8">
-        <p className="mb-5 text-center text-sm font-semibold text-navy-500">Changes save automatically.</p>
+        <p aria-live="polite" className={cn('mb-5 text-center text-sm font-semibold', saveStatus === 'error' ? 'text-rose-700' : 'text-navy-500')}>
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Couldn’t save just now — we’ll keep trying.' : 'Changes save automatically.'}
+        </p>
 
         <div className="grid gap-5 md:grid-cols-2 md:items-start">
           <Section icon={<Baby aria-hidden className="size-5" />} title="Child profile">
@@ -122,24 +153,7 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
               />
             </Row>
             <Row>
-              <fieldset>
-                <legend className="mb-2 font-bold">Picture</legend>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(AVATARS) as AvatarId[]).map((id) => (
-                    <label
-                      key={id}
-                      className={cn(
-                        'pressable flex size-14 cursor-pointer items-center justify-center rounded-full text-3xl ring-2 has-focus-visible:outline-3 has-focus-visible:outline-lilac-500',
-                        AVATARS[id].bg,
-                        child.avatar === id ? 'ring-lilac-500' : 'ring-transparent',
-                      )}
-                    >
-                      <input type="radio" name="avatar" className="sr-only" checked={child.avatar === id} onChange={() => set((s) => ({ ...s, child: { ...s.child, avatar: id } }))} aria-label={AVATARS[id].label} />
-                      <span aria-hidden>{AVATARS[id].emoji}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+              <AvatarPicker value={child.avatar} onChange={(avatar) => set((s) => ({ ...s, child: { ...s.child, avatar } }))} />
             </Row>
           </Section>
 
@@ -299,15 +313,20 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
               </ul>
             </Row>
             <Row>
+              {email && (
+                <p className="mb-3 text-sm text-navy-700">
+                  Signed in as <strong className="break-all text-navy-900">{email}</strong>
+                </p>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button variant="soft" disabled icon={<Download aria-hidden className="size-5" />} className="flex-1">
+                <Button variant="soft" onClick={exportData} icon={<Download aria-hidden className="size-5" />} className="flex-1">
                   Export data
                 </Button>
-                <Button variant="soft" disabled icon={<LogOut aria-hidden className="size-5" />} className="flex-1">
+                <Button variant="soft" onClick={() => void signOut()} icon={<LogOut aria-hidden className="size-5" />} className="flex-1">
                   Sign out
                 </Button>
               </div>
-              <PrototypeNote className="mt-3">Accounts arrive with Supabase sign-in</PrototypeNote>
+              {services.auth.isMock && <PrototypeNote className="mt-3">Demo mode — this account only exists on this device</PrototypeNote>}
             </Row>
             <Row>
               <Button variant="danger" fullWidth icon={<Trash2 aria-hidden className="size-5" />} onClick={() => dialog.current?.showModal()} disabled={stories.length === 0}>
@@ -319,7 +338,9 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
           <Section icon={<FlaskConical aria-hidden className="size-5" />} title="Prototype tools" className="border-2 border-dashed border-lilac-300 bg-lilac-50/70">
             <Row>
               <p className="text-sm text-navy-700">
-                This build uses local mock services only: sample transcription, template stories, simulated progress and silent playback. Nothing is sent to AI providers.
+                {services.mode === 'live'
+                  ? 'Your account and storybooks are saved securely. Story making is still simulated: sample transcription, template stories and silent playback. Nothing is sent to AI providers.'
+                  : 'This build uses local mock services only: sample transcription, template stories, simulated progress and silent playback. Nothing is sent to AI providers.'}
               </p>
             </Row>
             <Row>
@@ -333,18 +354,20 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
               />
               <p className="mt-2 text-sm text-navy-500">The first attempt fails at this step so you can review recovery.</p>
             </Row>
-            <Row>
-              <Button
-                variant="soft"
-                fullWidth
-                onClick={() => {
-                  services.resetDemo();
-                  toast.show('Demo data reset');
-                }}
-              >
-                Reset demo data
-              </Button>
-            </Row>
+            {services.resetDemo && (
+              <Row>
+                <Button
+                  variant="soft"
+                  fullWidth
+                  onClick={() => {
+                    services.resetDemo?.();
+                    toast.show('Demo data reset');
+                  }}
+                >
+                  Reset demo data
+                </Button>
+              </Row>
+            )}
           </Section>
         </div>
       </div>
@@ -362,11 +385,7 @@ export function ParentSettingsScreen({ onLock }: { onLock: () => void }) {
           <Button
             variant="danger"
             size="lg"
-            onClick={() => {
-              services.stories.clear();
-              dialog.current?.close();
-              toast.show('All storybooks deleted');
-            }}
+            onClick={() => void deleteAll()}
           >
             Delete everything
           </Button>

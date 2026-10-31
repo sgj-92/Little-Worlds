@@ -33,8 +33,12 @@ export interface MockGeneratorOptions {
 
 export interface MockStoryGenerator extends StoryGenerator {
   readonly usage: Store<UsageEvent[]>;
+  /** Forget every local job and usage record (e.g. on sign-out). */
+  reset(): void;
   dispose(): void;
 }
+
+const SAVE_FAILED = 'We couldn’t put the story on the shelf.';
 
 const DEFAULT_STAGE_MS: Record<GenerationStage, number> = { writing: 3200, illustrating: 3800, narrating: 3000 };
 
@@ -58,8 +62,9 @@ export function createMockStoryGenerator(opts: MockGeneratorOptions): MockStoryG
     timers.delete(id);
   }
 
-  function finish(job: GenerationJob): GenerationJob {
-    const storyId = job.storyId ?? createId('story');
+  /** Build the story from templates and put it on the shelf; a failed save is retryable. */
+  function finish(job: GenerationJob) {
+    const storyId = job.storyId ?? createId();
     const composed = composeStory(job.request, opts.getSettings().child.name, storyId);
     const story: Story = {
       id: storyId,
@@ -73,12 +78,16 @@ export function createMockStoryGenerator(opts: MockGeneratorOptions): MockStoryG
       source: 'prototype-template',
       listening: { positionSec: 0, completed: false, lastPlayedAt: null },
     };
-    opts.repository.save(story);
-    return { ...job, storyId };
+    void opts.repository.save(story).then((result) => {
+      const current = find(job.id);
+      if (!current || current.status === 'cancelled') return;
+      const now = opts.now();
+      put(result.ok ? completeStage({ ...current, storyId }, 'narrating', now) : failStage(current, 'narrating', SAVE_FAILED, now));
+    });
   }
 
   function tick(id: string) {
-    let job = find(id);
+    const job = find(id);
     if (!job || job.status !== 'running') return stop(id);
     const stage = nextStage(job);
     if (!stage) return stop(id);
@@ -98,12 +107,15 @@ export function createMockStoryGenerator(opts: MockGeneratorOptions): MockStoryG
       put(reportProgress(job, progress, now));
       return;
     }
-    job = completeStage(job, stage, now);
-    if (job.status === 'complete') {
-      job = finish(job);
+    const completed = completeStage(job, stage, now);
+    if (completed.status === 'complete') {
+      // Hold the last stage open until the story is safely stored.
       stop(id);
+      put(reportProgress(job, 1, now));
+      finish(job);
+      return;
     }
-    put(job);
+    put(completed);
   }
 
   function run(id: string) {
@@ -120,7 +132,7 @@ export function createMockStoryGenerator(opts: MockGeneratorOptions): MockStoryG
     usage,
     start(request) {
       const now = opts.now();
-      const job = createJob(createId('job'), request, now);
+      const job = createJob(createId(), request, now);
       jobs.set((prev) => [job, ...prev]);
       const { sceneCount } = durationOption(request.durationMinutes);
       usage.set((prev) => [
@@ -145,6 +157,11 @@ export function createMockStoryGenerator(opts: MockGeneratorOptions): MockStoryG
     dismiss(id) {
       stop(id);
       jobs.set((prev) => prev.filter((j) => j.id !== id));
+    },
+    reset() {
+      for (const id of [...timers.keys()]) stop(id);
+      jobs.set([]);
+      usage.set([]);
     },
     dispose() {
       for (const id of [...timers.keys()]) stop(id);

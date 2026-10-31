@@ -1,6 +1,6 @@
 # Roadmap
 
-## Milestone 1 — UX prototype ✅ (awaiting review)
+## Milestone 1 — UX prototype ✅ (reviewed and approved)
 
 Navigable prototype of all six screens on mock adapters, design system, docs, tests.
 
@@ -8,13 +8,14 @@ Acceptance: all screens reachable and connected; phone and tablet layouts; consi
 loading/empty/error/success states; mocks clearly labelled; typecheck, lint, unit, component
 and e2e tests pass; production build succeeds.
 
-## Milestone 2 — Accounts and persistence
+## Milestone 2 — Accounts and persistence ✅ (code complete; awaiting owner setup in Supabase)
 
 - Supabase project, apply schema + RLS, private storage bucket.
-- Parent sign-up/sign-in (magic link or passkey), family + child profile onboarding.
-- `createLiveServices()` with Supabase repositories; local sample data removed.
-- Server-enforced parent gate session and settings.
-- RLS tests (pgTAP or integration tests with two families).
+- Parent sign-up/sign-in with email + password, optional Google and Apple; password reset;
+  family + child profile onboarding.
+- `createLiveServices()` with Supabase repositories; demo mode kept for previews and tests.
+- RLS tests with two families against a throwaway Postgres (`npm run test:db`).
+- Deferred to Milestone 3: server-side parent gate/limits (the gate stays a child barrier).
 
 Acceptance: a family's stories/settings persist across devices; another family cannot read them;
 no secrets in the client bundle.

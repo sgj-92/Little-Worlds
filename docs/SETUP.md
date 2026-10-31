@@ -11,8 +11,11 @@ Story making, voice capture and narration are still simulated in both modes (Mil
 
 ## 1. Create the database (once)
 
+> ✅ Already done for project `mdswuatymersiwhvuqze` (applied through the Supabase connector on
+> 2026-10-31). For a new project, run every file in `supabase/migrations/` in order.
+
 1. Supabase dashboard → **SQL Editor** → **New query**.
-2. Paste the whole of [`supabase/migrations/0001_initial_schema.sql`](../supabase/migrations/0001_initial_schema.sql) → **Run**.
+2. Paste each file in [`supabase/migrations/`](../supabase/migrations/) in order → **Run**.
    It should finish with "Success. No rows returned". It is safe to run again.
 3. Check **Table Editor**: `families`, `child_profiles`, `stories`, `story_scenes`, `listening_progress`,
    `generation_jobs` and `usage_events` should exist, each marked as RLS enabled.

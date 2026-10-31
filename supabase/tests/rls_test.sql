@@ -13,6 +13,8 @@ begin
 end $$;
 
 select pg_temp.check((select count(*) from public.families) = 2, 'sign-up trigger creates a family per parent');
+select pg_temp.check(not has_function_privilege('anon', 'public.handle_new_user()', 'execute')
+  and not has_function_privilege('authenticated', 'public.handle_new_user()', 'execute'), 'sign-up trigger function is not callable via the API');
 
 -- ── Family A ──
 set role authenticated;

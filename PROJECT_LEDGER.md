@@ -3,8 +3,8 @@
 _Canonical status for Little Worlds. Update after every meaningful change._
 
 **Last updated:** 2026-10-31
-**Current phase:** Milestone 2 — Accounts and persistence — **code complete; waiting for the owner to run the
-database script and set Vercel variables** (see `docs/SETUP.md`)
+**Current phase:** Milestone 2 — Accounts and persistence — **code complete; database applied to the Supabase
+project; waiting for the owner to set Vercel variables and auth redirect URLs** (see `docs/SETUP.md` §2–3)
 **Milestone 1** was reviewed and approved by the owner ("a great start") and is deployed on Vercel.
 
 ## Status
@@ -18,7 +18,7 @@ database script and set Vercel variables** (see `docs/SETUP.md`)
 | Mock services | ✅ Repositories (localStorage), job-based generator, speech capture, sample library |
 | Parent accounts | ✅ Email + password, password reset, optional Google/Apple, child onboarding, sign-out, data export |
 | Persistence | ✅ Supabase repositories for stories, scenes, listening progress, family limits, child profile |
-| Supabase schema | ✅ Idempotent migration + RLS, tested locally — ⏳ **not yet applied to the project** |
+| Supabase schema | ✅ `0001_initial_schema` + `0002_hardening` applied to the project (2026-10-31); security advisor clean |
 | Live AI / audio / voice | ⛔ Not started (Milestones 3–4) |
 
 ## Environment
@@ -29,7 +29,7 @@ database script and set Vercel variables** (see `docs/SETUP.md`)
 | Supabase project | `mdswuatymersiwhvuqze` (Europe). Recommended settings: Data API on, auto-expose off, automatic RLS on |
 | Public config | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, optional `VITE_AUTH_PROVIDERS` |
 | Secrets | None in the repo or client. Service-role key will live in Vercel only (Milestone 3) |
-| Agent access | The cloud dev container cannot reach `*.supabase.co` (network policy), so migrations are applied by the owner in the SQL editor |
+| Agent access | "Supabase - Little Worlds" MCP connector (scoped to this project; no account/branching features). The dev container itself cannot reach `*.supabase.co` |
 
 ## What is mocked (and labelled in the UI)
 
@@ -62,11 +62,11 @@ database script and set Vercel variables** (see `docs/SETUP.md`)
 | D16 | Temporary RLS policies let families write their own `prototype-template` stories | Generation still runs in the browser until Milestone 3; AI stories stay server-only |
 | D17 | Repositories are optimistic caches over Supabase with rollback | Keeps the child UI instant; failures roll back and surface calmly |
 | D18 | Supabase SDK lazy-loaded only in live mode | Keeps the initial bundle at ~138 kB gzip |
+| D20 | Trigger functions not executable via the Data API (`0002_hardening`) | Supabase advisor; nothing should call them over HTTP |
 | D19 | Daily allowance counts stories made today + stories in progress | Holds across devices in live mode until server metering lands |
 
 ## Known issues / limitations
 
-- Migration not yet applied to the Supabase project (owner action).
 - Built-in Supabase email sending is rate-limited; custom SMTP needed before inviting families.
 - Daily limit and monthly budget are still enforced in the browser (server enforcement in M3).
 - Monthly cost estimate is per device (local usage log) until server metering.
@@ -88,11 +88,13 @@ database script and set Vercel variables** (see `docs/SETUP.md`)
 - `npm run test:e2e` ✅ 8 tests (4 journeys × phone + tablet)
 - Live build exercised in Chromium against a simulated Supabase API: sign-in, onboarding upsert,
   story + scenes write all issued the expected requests
-- Not yet verified against the real Supabase project (network policy; owner to run setup)
+- Real project: migrations applied; tables have RLS; `anon` has no table access; security advisor
+  clean after `0002_hardening`. A live two-family RLS check awaits the owner's approval in the connector.
 
 ## Next actions
 
-1. **Owner:** run the database script and set Vercel variables (`docs/SETUP.md` §1–3), then sign up.
+1. **Owner:** set Vercel variables and auth redirect URLs (`docs/SETUP.md` §2–3), then sign up.
+   (Database is already applied via the connector.)
 2. Verify on the real project: sign-up email, onboarding, story saved, progress across devices.
 3. Optional: configure Google (and Apple) sign-in (`docs/SETUP.md` §4).
 4. Milestone 3: server-side generation pipeline, AI providers, moderation, server-enforced limits.
